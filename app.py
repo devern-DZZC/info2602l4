@@ -39,8 +39,8 @@ jwt = JWTManager(app)
 
 
 @jwt.user_identity_loader
-def user_identity_lookup(user):
-  return user.id
+def user_identity_lookup(identity):
+  return identity
 
 
 @jwt.user_lookup_loader
@@ -79,7 +79,7 @@ def login_required(required_class):
 def login_user(username, password):
   user = User.query.filter_by(username=username).first()
   if user and user.check_password(password):
-    token = create_access_token(identity=user)
+    token = create_access_token(identity=user.id)
     return token
   return None
 
@@ -140,12 +140,15 @@ def signup_action():
 def login_action():
   data = request.form
   token = login_user(data['username'], data['password'])
-
+  print(token)
   response = None
+  user = User.query.filter_by(username=data['username']).first()
   if token:
     flash('Logged in successfully.')  # send message to next page
-    response = redirect(
-        url_for('todos_page'))  # redirect to main page if login successful
+    if user.type == "regular user":
+      response = redirect(url_for('todos_page'))
+    else :
+      response = redirect(url_for('admin_page'))  # redirect to main page if login successful
     set_access_cookies(response, token)
   else:
     flash('Invalid username or password')  # send message to next page
@@ -191,6 +194,21 @@ def delete_todo_action(id):
     flash('Todo Deleted')
   return redirect(url_for('todos_page'))
 
+@app.route('/logout', methods=['GET'])
+@jwt_required()
+def logout_action():
+  flash('Logged Out')
+  response = redirect(url_for('login_page'))
+  unset_jwt_cookies(response)
+  return response
+
+@app.route('/admin')
+@login_required(Admin)
+def admin_page():
+  page = request.args.get('page', 1, type=int)
+  q = request.args.get('q', default='', type=str)
+  todos = current_user.search_todos(q, page)
+  return render_template('admin.html', todos=todos, page=page, q=q)
 
 
 

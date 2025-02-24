@@ -177,7 +177,18 @@ class Admin(User):
   __mapper_args__ = {
       'polymorphic_identity': 'admin',
   }
+  
+  def search_todos(self, q, page): 
+    matching_todos = None
 
+    if q!="" :
+      matching_todos = Todo.query.join(RegularUser).filter(
+        db.or_(RegularUser.username.ilike(f'%{q}%'), Todo.text.ilike(f'%{q}%'), Todo.id.ilike(f'%{q}%'))
+      )
+    else:
+      matching_todos = Todo.query
+
+    return matching_todos.paginate(page=page, per_page=10)
   def get_all_todos_json(self):
     todos = Todo.query.all()
     if todos:
